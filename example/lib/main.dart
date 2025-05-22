@@ -32,7 +32,7 @@ class _MyAppState extends State<MyApp> {
     // We also handle the message potentially returning null.
     try {
       platformVersion =
-          await _jafraBluetoothPlugin.getPlatformVersion() ?? 'Unknown platform version';
+          await _jafraBluetoothPlugin.adapterName ?? 'Unknown platform version';
     } on PlatformException {
       platformVersion = 'Failed to get platform version.';
     }

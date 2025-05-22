@@ -1,3 +1,4 @@
+import 'package:jafra_bluetooth/models/bluetooth_adapter_state.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'jafra_bluetooth_method_channel.dart';
@@ -23,7 +24,21 @@ abstract class JafraBluetoothPlatform extends PlatformInterface {
     _instance = instance;
   }
 
-  Future<String?> getPlatformVersion() {
-    throw UnimplementedError('platformVersion() has not been implemented.');
+  Future<String?> get adapterName;
+
+  Future<String?> get adapterAddress;
+
+  Future<bool> get isAvailable;
+
+  Future<bool> get isEnabled;
+
+  Future<BluetoothAdapterState> get state;
+
+  Future<void> openSettings() {
+    throw UnimplementedError('openSettings() has not been implemented.');
+  }
+
+  Future<bool> ensurePermissions() {
+    throw UnimplementedError('ensurePermissions() has not been implemented.');
   }
 }

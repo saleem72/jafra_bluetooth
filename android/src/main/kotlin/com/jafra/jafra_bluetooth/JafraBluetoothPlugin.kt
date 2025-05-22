@@ -29,8 +29,8 @@ class JafraBluetoothPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
   PluginRegistry.RequestPermissionsResultListener {
   companion object {
     const val TAG = "JafraBluetoothPlugin"
-    const val channelName = "jafra_bluetooth"
     const val REQUEST_BLUETOOTH_PERMISSIONS = 1001
+    const val channelName = "jafra_bluetooth"
     const val isAvailable = "isAvailable"
     const val isOn = "isOn"
     const val isEnabled = "isEnabled"
@@ -70,6 +70,9 @@ class JafraBluetoothPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
     discoveryChannel.setStreamHandler(bluetoothDiscoveryHelper)
 
     adapterStateChannel = EventChannel(flutterPluginBinding.binaryMessenger, "$channelName/adapter_state")
+
+    adapterStateHandler = BluetoothStateStreamHandler(flutterPluginBinding.applicationContext)
+
     adapterStateChannel.setStreamHandler(adapterStateHandler)
     Log.d(TAG, "onAttachedToEngine: JafraBluetoothPlugin was created")
   }
@@ -99,7 +102,20 @@ class JafraBluetoothPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
       }
 
       getState -> {
-        result.success(bluetoothAdapter.state)
+        ensureBluetoothPermissions(
+
+
+          onGranted = {
+
+            val address = bluetoothAdapter.address
+            Log.d(TAG, "onMethodCall: address: $address")
+            result.success(address)
+          },
+          onDenied = { error ->
+            Log.d(TAG, "onMethodCall: $error")
+            result.success(null)
+          }
+        )
       }
 
 
@@ -110,6 +126,7 @@ class JafraBluetoothPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
           onGranted = {
 
             val name = bluetoothAdapter.name
+            Log.d(TAG, "onMethodCall: name: $name")
             result.success(name)
           },
           onDenied = { error ->
