@@ -16,4 +16,10 @@ class JafraBluetooth {
   Future<bool> get isEnabled => singleton.isEnabled;
 
   Future<BluetoothAdapterState> get state => singleton.state;
+
+  Future<void> dispose() => singleton.dispose();
+
+  Stream<BluetoothAdapterState> startDiscovery() {
+    return singleton.startDiscovery();
+  }
 }

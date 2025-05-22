@@ -14,4 +14,12 @@ enum BluetoothAdapterState {
         13 => BluetoothAdapterState.turningOff,
         int() => throw BluetoothAdapterState.unknown,
       };
+
+  factory BluetoothAdapterState.fromString(String value) => switch (value) {
+        'off' => BluetoothAdapterState.off,
+        'turning_on' => BluetoothAdapterState.turningOn,
+        'on' => BluetoothAdapterState.on,
+        'turning_off' => BluetoothAdapterState.turningOff,
+        String() => BluetoothAdapterState.unknown,
+      };
 }

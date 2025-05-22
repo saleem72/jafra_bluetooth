@@ -24,6 +24,10 @@ abstract class JafraBluetoothPlatform extends PlatformInterface {
     _instance = instance;
   }
 
+  Future<void> dispose() async {
+    throw UnimplementedError('openSettings() has not been implemented.');
+  }
+
   Future<String?> get adapterName;
 
   Future<String?> get adapterAddress;
@@ -33,6 +37,10 @@ abstract class JafraBluetoothPlatform extends PlatformInterface {
   Future<bool> get isEnabled;
 
   Future<BluetoothAdapterState> get state;
+
+  Stream<BluetoothAdapterState> startDiscovery() {
+    throw UnimplementedError('startDiscovery() has not been implemented.');
+  }
 
   Future<void> openSettings() {
     throw UnimplementedError('openSettings() has not been implemented.');

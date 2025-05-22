@@ -107,7 +107,7 @@ class JafraBluetoothPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
 
           onGranted = {
 
-            val address = bluetoothAdapter.address
+            val address = bluetoothAdapter.state
             Log.d(TAG, "onMethodCall: address: $address")
             result.success(address)
           },

@@ -1,3 +1,5 @@
+//
+
 import 'package:flutter/material.dart';
 import 'dart:async';
 
@@ -18,6 +20,8 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   String _platformVersion = 'Unknown';
   final _jafraBluetoothPlugin = JafraBluetooth();
+  StreamSubscription<BluetoothAdapterState>? _streamSubscription;
+  BluetoothAdapterState adapterState = BluetoothAdapterState.unknown;
 
   @override
   void initState() {
@@ -33,6 +37,12 @@ class _MyAppState extends State<MyApp> {
     try {
       platformVersion =
           await _jafraBluetoothPlugin.adapterName ?? 'Unknown platform version';
+      adapterState = await _jafraBluetoothPlugin.state;
+      _streamSubscription = _jafraBluetoothPlugin.startDiscovery().listen((r) {
+        setState(() {
+          adapterState = r;
+        });
+      });
     } on PlatformException {
       platformVersion = 'Failed to get platform version.';
     }
@@ -48,6 +58,13 @@ class _MyAppState extends State<MyApp> {
   }
 
   @override
+  void dispose() {
+    _streamSubscription?.cancel();
+    _jafraBluetoothPlugin.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
@@ -55,7 +72,13 @@ class _MyAppState extends State<MyApp> {
           title: const Text('Plugin example app'),
         ),
         body: Center(
-          child: Text('Running on: $_platformVersion\n'),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Adapter name: $_platformVersion'),
+              Text('Adapter state: ${adapterState.toString()}'),
+            ],
+          ),
         ),
       ),
     );
