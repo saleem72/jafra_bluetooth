@@ -9,11 +9,12 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
-import android.util.Log
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.jafra.jafra_bluetooth.data.helpers.BluetoothDiscoveryHelper
+import com.jafra.jafra_bluetooth.data.helpers.BluetoothIsDiscoveringStreamHandler
 import com.jafra.jafra_bluetooth.data.helpers.BluetoothStateStreamHandler
+import io.flutter.Log
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -31,6 +32,10 @@ class JafraBluetoothPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
     const val TAG = "JafraBluetoothPlugin"
     const val REQUEST_BLUETOOTH_PERMISSIONS = 1001
     const val channelName = "jafra_bluetooth"
+    const val discoveryChannelName = "discovery"
+    const val adapterStateChannelName = "adapter_state"
+    const val isDiscoveringChannelName = "is_discovering"
+
     const val isAvailable = "isAvailable"
     const val isOn = "isOn"
     const val isEnabled = "isEnabled"
@@ -38,6 +43,9 @@ class JafraBluetoothPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
     const val getState = "getState"
     const val getAddress = "getAddress"
     const val getName = "getName"
+    const val startDiscovery = "startDiscovery"
+    const val stopDiscovery = "stopDiscovery"
+
 //    const val ensurePermissions = "ensurePermissions"
   }
 
@@ -52,28 +60,50 @@ class JafraBluetoothPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
 
   private lateinit var channel: MethodChannel
   private lateinit var discoveryChannel: EventChannel
-  private lateinit var adapterStateChannel: EventChannel
 
-  private var bluetoothDiscoveryHelper: BluetoothDiscoveryHelper? = null
+  private lateinit var adapterStateChannel: EventChannel
+  private lateinit var isDiscoveringChannel: EventChannel
+
+  private lateinit var bluetoothDiscoveryHelper: BluetoothDiscoveryHelper
   private lateinit var adapterStateHandler: BluetoothStateStreamHandler
+  private lateinit var bluetoothIsDiscoveringStreamHandler: BluetoothIsDiscoveringStreamHandler
 
   private var pendingOnGranted: (() -> Unit)? = null
   private var pendingOnDenied: ((String) -> Unit)? = null
 
   override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
     context = flutterPluginBinding.applicationContext
-    channel = MethodChannel(flutterPluginBinding.binaryMessenger, channelName)
+    channel = MethodChannel(
+      flutterPluginBinding.binaryMessenger,
+      channelName
+    )
     channel.setMethodCallHandler(this)
     bluetoothAdapter = getBluetoothAdapter(context)
 
-    discoveryChannel = EventChannel(flutterPluginBinding.binaryMessenger, "$channelName/discovery")
+    discoveryChannel = EventChannel(
+      flutterPluginBinding.binaryMessenger,
+      "$channelName/$discoveryChannelName"
+    )
+    bluetoothDiscoveryHelper = BluetoothDiscoveryHelper(context, bluetoothAdapter)
     discoveryChannel.setStreamHandler(bluetoothDiscoveryHelper)
 
-    adapterStateChannel = EventChannel(flutterPluginBinding.binaryMessenger, "$channelName/adapter_state")
+    adapterStateChannel = EventChannel(
+      flutterPluginBinding.binaryMessenger,
+      "$channelName/$adapterStateChannelName"
+    )
 
     adapterStateHandler = BluetoothStateStreamHandler(flutterPluginBinding.applicationContext)
 
     adapterStateChannel.setStreamHandler(adapterStateHandler)
+
+    isDiscoveringChannel = EventChannel(
+      flutterPluginBinding.binaryMessenger,
+      "$channelName/$isDiscoveringChannelName"
+    )
+
+    bluetoothIsDiscoveringStreamHandler = BluetoothIsDiscoveringStreamHandler(context)
+    isDiscoveringChannel.setStreamHandler(bluetoothIsDiscoveringStreamHandler)
+
     Log.d(TAG, "onAttachedToEngine: JafraBluetoothPlugin was created")
   }
 
@@ -107,9 +137,8 @@ class JafraBluetoothPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
 
           onGranted = {
 
-            val address = bluetoothAdapter.state
-            Log.d(TAG, "onMethodCall: address: $address")
-            result.success(address)
+            val aState = bluetoothAdapter.state
+            result.success(aState)
           },
           onDenied = { error ->
             Log.d(TAG, "onMethodCall: $error")
@@ -140,14 +169,17 @@ class JafraBluetoothPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
         result.success("mac address is hidden by system")
       }
 
-//      startDiscovery -> {
-//        Log.d(TAG, "onMethodCall: startDiscovery")
-//        startDiscovery()
-//      }
-//
-//      cancelDiscovery -> {
-//        stopDiscovery()
-//      }
+      startDiscovery -> {
+        Log.d(TAG, "onMethodCall: startDiscovery")
+//        bluetoothAdapter.startDiscovery()
+        bluetoothDiscoveryHelper.startDiscovery()
+      }
+
+      stopDiscovery -> {
+        Log.d(TAG, "onMethodCall: stopDiscovery")
+//        bluetoothAdapter.cancelDiscovery()
+        bluetoothDiscoveryHelper.stopDiscovery()
+      }
 
       else -> result.notImplemented()
     }
@@ -155,8 +187,13 @@ class JafraBluetoothPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
 
   override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
     channel.setMethodCallHandler(null)
+
+
     discoveryChannel.setStreamHandler(null)
+    bluetoothDiscoveryHelper.stopDiscovery()
+
     adapterStateChannel.setStreamHandler(null)
+    isDiscoveringChannel.setStreamHandler(null)
   }
 
   override fun onRequestPermissionsResult(
@@ -210,7 +247,9 @@ class JafraBluetoothPlugin: FlutterPlugin, MethodCallHandler, ActivityAware,
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       val requiredPermissions = listOf(
         Manifest.permission.BLUETOOTH_CONNECT,
-        Manifest.permission.BLUETOOTH_SCAN
+        Manifest.permission.BLUETOOTH_SCAN,
+        Manifest.permission.ACCESS_FINE_LOCATION,
+        Manifest.permission.BLUETOOTH_ADMIN,
       )
 
       val missingPermissions = requiredPermissions.filter {

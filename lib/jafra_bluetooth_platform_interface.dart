@@ -1,4 +1,5 @@
 import 'package:jafra_bluetooth/models/bluetooth_adapter_state.dart';
+import 'package:jafra_bluetooth/models/jafra_bluetooth_device.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 import 'jafra_bluetooth_method_channel.dart';
@@ -38,9 +39,17 @@ abstract class JafraBluetoothPlatform extends PlatformInterface {
 
   Future<BluetoothAdapterState> get state;
 
-  Stream<BluetoothAdapterState> startDiscovery() {
+  Future<void> startDiscover();
+
+  Future<void> stopDiscover();
+
+  Stream<JafraBluetoothDevice> onDevice();
+
+  Stream<BluetoothAdapterState> discoveredDevices() {
     throw UnimplementedError('startDiscovery() has not been implemented.');
   }
+
+  Stream<bool> isDiscovering();
 
   Future<void> openSettings() {
     throw UnimplementedError('openSettings() has not been implemented.');

@@ -4,46 +4,96 @@ import 'dart:developer';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:jafra_bluetooth/models/bluetooth_adapter_state.dart';
+import 'package:jafra_bluetooth/models/jafra_bluetooth_device.dart';
 
 import 'jafra_bluetooth_platform_interface.dart';
 
 /// An implementation of [JafraBluetoothPlatform] that uses method channels.
 class MethodChannelJafraBluetooth extends JafraBluetoothPlatform {
-  late StreamSubscription<BluetoothAdapterState> _subscription;
-  late StreamController<BluetoothAdapterState> _controller;
+  late StreamSubscription<BluetoothAdapterState>
+      _bluetoothAdapterStateSubscription;
+  late StreamController<BluetoothAdapterState> _bluetoothAdapterStateController;
+
+  late StreamSubscription<bool> _bluetoothIsDiscoveringSubscription;
+  late StreamController<bool> _bluetoothIsDiscoveringController;
+
+  late StreamController<JafraBluetoothDevice> _bluetoothDeviceController;
+  late StreamSubscription<JafraBluetoothDevice> _bluetoothDeviceSubscription;
 
   MethodChannelJafraBluetooth() {
-    _controller = StreamController(
+    _bluetoothAdapterStateController = StreamController(
       onCancel: () {
         // `cancelDiscovery` happens automatically by platform code when closing event sink
-        _subscription.cancel();
+        _bluetoothAdapterStateSubscription.cancel();
+      },
+    );
+    _bluetoothIsDiscoveringController = StreamController(
+      onCancel: () {
+        // `cancelDiscovery` happens automatically by platform code when closing event sink
+        _bluetoothIsDiscoveringSubscription.cancel();
       },
     );
 
-    _subscription = _adapterStateChannel
+    _bluetoothDeviceController = StreamController(
+      onCancel: () {
+        _bluetoothDeviceSubscription.cancel();
+      },
+    );
+
+    _bluetoothAdapterStateSubscription = _adapterStateChannel
         .receiveBroadcastStream()
         .map((event) => BluetoothAdapterState.fromString(event as String))
         .listen(
-          _controller.add,
-          onError: _controller.addError,
-          onDone: _controller.close,
+          _bluetoothAdapterStateController.add,
+          onError: _bluetoothAdapterStateController.addError,
+          onDone: _bluetoothAdapterStateController.close,
+        );
+
+    _bluetoothIsDiscoveringSubscription =
+        _isDiscoveringChannel.receiveBroadcastStream().map((event) {
+      log(event.toString(), name: "MethodChannelJafraBluetooth");
+      if (event == true) {
+        return true;
+      }
+      return false;
+    }).listen(
+      _bluetoothIsDiscoveringController.add,
+      onError: _bluetoothIsDiscoveringController.addError,
+      onDone: _bluetoothIsDiscoveringController.close,
+    );
+
+    _bluetoothDeviceSubscription = _devicesChannel
+        .receiveBroadcastStream()
+        .map((event) => JafraBluetoothDevice.fromMap(event))
+        .listen(
+          _bluetoothDeviceController.add,
+          onError: _bluetoothDeviceController.addError,
+          onDone: _bluetoothDeviceController.close,
         );
   }
 
   @override
   Future<void> dispose() async {
     // await methodChannel.invokeMethod('dispose');
-    _subscription.cancel();
-    _controller.close();
+    _bluetoothAdapterStateSubscription.cancel();
+    _bluetoothIsDiscoveringController.close();
+
+    _bluetoothIsDiscoveringSubscription.cancel();
+    _bluetoothAdapterStateController.close();
   }
 
   /// The method channel used to interact with the native platform.
   @visibleForTesting
   final methodChannel = const MethodChannel(_BluetoothKeys.channelName);
 
-  final EventChannel _adapterStateChannel =
-      const EventChannel('${_BluetoothKeys.channelName}/adapter_state');
+  final EventChannel _adapterStateChannel = const EventChannel(
+      '${_BluetoothKeys.channelName}/${_BluetoothKeys.adapterStateChannelName}');
 
+  final EventChannel _isDiscoveringChannel = const EventChannel(
+      '${_BluetoothKeys.channelName}/${_BluetoothKeys.isDiscoveringChannelName}');
+
+  final EventChannel _devicesChannel = const EventChannel(
+      '${_BluetoothKeys.channelName}/${_BluetoothKeys.discoveryChannelName}');
   @override
   Future<String?> get adapterAddress async =>
       await methodChannel.invokeMethod<String>(_BluetoothKeys.getAddress);
@@ -76,13 +126,34 @@ class MethodChannelJafraBluetooth extends JafraBluetoothPlatform {
   @override
 
   /// Starts discovery and provides stream of `BluetoothDiscoveryResult`s.
-  Stream<BluetoothAdapterState> startDiscovery() {
-    return _controller.stream;
+  Stream<BluetoothAdapterState> discoveredDevices() {
+    return _bluetoothAdapterStateController.stream;
+  }
+
+  @override
+  Stream<JafraBluetoothDevice> onDevice() {
+    return _bluetoothDeviceController.stream;
+  }
+
+  @override
+  Future<void> startDiscover() async =>
+      await methodChannel.invokeMethod(_BluetoothKeys.startDiscovery);
+
+  @override
+  Future<void> stopDiscover() async =>
+      await methodChannel.invokeMethod(_BluetoothKeys.stopDiscovery);
+
+  @override
+  Stream<bool> isDiscovering() {
+    return _bluetoothIsDiscoveringController.stream;
   }
 }
 
 abstract class _BluetoothKeys {
   static const String channelName = 'jafra_bluetooth';
+  static const String discoveryChannelName = 'discovery';
+  static const String adapterStateChannelName = 'adapter_state';
+  static const String isDiscoveringChannelName = 'is_discovering';
   static const String isAvailable = 'isAvailable';
   static const String isOn = 'isOn';
   static const String isEnabled = 'isEnabled';
@@ -90,4 +161,6 @@ abstract class _BluetoothKeys {
   static const String getState = 'getState';
   static const String getAddress = 'getAddress';
   static const String getName = 'getName';
+  static const String startDiscovery = 'startDiscovery';
+  static const String stopDiscovery = 'stopDiscovery';
 }

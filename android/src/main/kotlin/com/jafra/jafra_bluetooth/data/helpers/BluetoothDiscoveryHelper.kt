@@ -9,22 +9,27 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
-import android.util.Log
 import io.flutter.plugin.common.EventChannel
 
 import com.jafra.jafra_bluetooth.data.mappers.toJafraBluetoothDevice
 import com.jafra.jafra_bluetooth.data.mappers.toMap
+import io.flutter.Log
 
 class BluetoothDiscoveryHelper(
     private val context: Context,
     private val bluetoothAdapter: BluetoothAdapter,
 ) : EventChannel.StreamHandler {
 
+    companion object {
+        const val  TAG = "JafraBluetoothPlugin"
+    }
+
     private var eventSink: EventChannel.EventSink? = null
     private var isReceiverRegistered = false
     private var bluetoothReceiver: BroadcastReceiver? = null
 
     override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+        Log.d(TAG, "onListen: BluetoothDiscoveryHelper")
         eventSink = events
         startDiscovery()
     }
@@ -35,17 +40,23 @@ class BluetoothDiscoveryHelper(
 
     @SuppressLint("MissingPermission")
      fun startDiscovery() {
+
+        Log.d(TAG, "BluetoothDiscoveryHelper: startDiscovery")
         if (bluetoothAdapter.isDiscovering) {
             bluetoothAdapter.cancelDiscovery()
         }
 
         if (!isReceiverRegistered) {
-            val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
+//            val filter = IntentFilter(BluetoothDevice.ACTION_FOUND)
+            val filter = IntentFilter().apply {
+                addAction(BluetoothDevice.ACTION_FOUND)
+            }
             context.registerReceiver(getReceiver(), filter)
             isReceiverRegistered = true
         }
 
-        bluetoothAdapter.startDiscovery()
+        val started = bluetoothAdapter.startDiscovery()
+        Log.d(TAG, "startDiscovery result: $started")
     }
 
     @SuppressLint("MissingPermission")
@@ -63,6 +74,8 @@ class BluetoothDiscoveryHelper(
         if (bluetoothReceiver == null) {
             bluetoothReceiver = object : BroadcastReceiver() {
                 override fun onReceive(ctx: Context?, intent: Intent?) {
+                    val action = intent?.action
+                    Log.d(TAG, "action: $action")
                     if (intent?.action == BluetoothDevice.ACTION_FOUND) {
                         val device = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                             intent.getParcelableExtra(
@@ -74,6 +87,7 @@ class BluetoothDiscoveryHelper(
                             intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE)
                         }
                         device?.let {
+                            Log.d(TAG, "device: $it")
                             eventSink?.success(it.toJafraBluetoothDevice().toMap())
                         }
 

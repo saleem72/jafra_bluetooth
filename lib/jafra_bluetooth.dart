@@ -1,4 +1,5 @@
 import 'package:jafra_bluetooth/models/bluetooth_adapter_state.dart';
+import 'package:jafra_bluetooth/models/jafra_bluetooth_device.dart';
 
 import 'jafra_bluetooth_platform_interface.dart';
 
@@ -19,7 +20,15 @@ class JafraBluetooth {
 
   Future<void> dispose() => singleton.dispose();
 
-  Stream<BluetoothAdapterState> startDiscovery() {
-    return singleton.startDiscovery();
+  Stream<BluetoothAdapterState> discoveredDevices() {
+    return singleton.discoveredDevices();
   }
+
+  Future<void> startDiscover() async => singleton.startDiscover();
+
+  Future<void> stopDiscover() async => singleton.stopDiscover();
+
+  Stream<bool> isDiscovering() => singleton.isDiscovering();
+
+  Stream<JafraBluetoothDevice> onDevice() => singleton.onDevice();
 }
